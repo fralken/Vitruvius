@@ -51,20 +51,12 @@ namespace LightBuzz.Vitruvius
         {
             if (Bitmap == null)
             {
-                Width = frame.FrameDescription.Width;
-                Height = frame.FrameDescription.Height;
-                Pixels = new byte[Width * Height * Constants.BYTES_PER_PIXEL];
-                Bitmap = new WriteableBitmap(Width, Height, Constants.DPI, Constants.DPI, Constants.FORMAT, null);
+                InitializeBitmap(frame.FrameDescription);
             }
 
             frame.CopyConvertedFrameDataToArray(Pixels, ColorImageFormat.Bgra);
 
-            Bitmap.Lock();
-
-            Marshal.Copy(Pixels, 0, Bitmap.BackBuffer, Pixels.Length);
-            Bitmap.AddDirtyRect(new Int32Rect(0, 0, Width, Height));
-
-            Bitmap.Unlock();
+            UpdateBitmap();
         }
 
         #endregion

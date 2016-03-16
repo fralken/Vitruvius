@@ -59,7 +59,7 @@ namespace LightBuzz.Vitruvius
         /// <summary>
         /// The background removal generator.
         /// </summary>
-        static GreenScreenBitmapGenerator _greenScreenBitmapGenerator = new GreenScreenBitmapGenerator();
+        static GreenScreenBitmapGenerator _greenScreenBitmapGenerator = GreenScreenBitmapGenerator.Create();
 
         /// <summary>
         /// The bitmap capture utility.
@@ -104,7 +104,7 @@ namespace LightBuzz.Vitruvius
         {
             _depthBitmapGenerator.Update(depthFrame, bodyIndexFrame);
 
-            return _depthBitmapGenerator.HighlightedBitmap;
+            return _depthBitmapGenerator.Bitmap;
         }
 
         /// <summary>

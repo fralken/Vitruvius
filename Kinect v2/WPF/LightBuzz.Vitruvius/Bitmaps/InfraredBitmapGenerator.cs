@@ -48,6 +48,24 @@ namespace LightBuzz.Vitruvius
         /// </summary>
         public ushort[] InfraredData { get; protected set; }
 
+        /// <summary>
+        /// Number of least significant bits to be discarded from infrared data
+        /// The less discarded, the more details are preserved in the background,
+        /// but less in the foreground
+        /// </summary>
+        public byte DiscardedLsb {
+            get { return _discardedLsb; } 
+            set { _discardedLsb = value > MaxDiscardableLsb ? MaxDiscardableLsb : value; }
+        }
+        private byte _discardedLsb = 6;
+
+        /// <summary>
+        /// Max number of least significant bits that can be discarded. 
+        /// Since infrared data is 16 bit wide, and we need to map it to 8 bit,
+        /// we can at most discard 8 bit.
+        /// </summary>
+        public static byte MaxDiscardableLsb { get { return 8; } }
+        
         #endregion
 
         #region Methods
@@ -60,16 +78,14 @@ namespace LightBuzz.Vitruvius
         {
             if (Bitmap == null)
             {
-                Width = frame.FrameDescription.Width;
-                Height = frame.FrameDescription.Height;
+                InitializeBitmap(frame.FrameDescription);
                 InfraredData = new ushort[Width * Height];
-                Pixels = new byte[Width * Height * Constants.BYTES_PER_PIXEL];
-                Bitmap = new WriteableBitmap(Width, Height, Constants.DPI, Constants.DPI, Constants.FORMAT, null);
             }
 
             frame.CopyFrameDataToArray(InfraredData);
 
             // Convert the infrared to RGB.
+            ushort maxInfra = (ushort)((1 << (8 + _discardedLsb)) - 1);
             int colorIndex = 0;
             for (int infraredIndex = 0; infraredIndex < InfraredData.Length; infraredIndex++)
             {
@@ -77,25 +93,16 @@ namespace LightBuzz.Vitruvius
                 ushort ir = InfraredData[infraredIndex];
 
                 // To convert to a byte, we're discarding the most-significant
-                // rather than least-significant bits.
-                // We're preserving detail, although the intensity will "wrap."
-                byte intensity = (byte)(ir >> 6);
+                // rather than least-significant bits so that we preserve details
+                byte intensity = (byte)((ir > maxInfra ? maxInfra : ir) >> _discardedLsb);
 
                 Pixels[colorIndex++] = intensity; // Blue
                 Pixels[colorIndex++] = intensity; // Green   
                 Pixels[colorIndex++] = intensity; // Red
-
-                // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                // If we were outputting BGRA, we would write alpha here.
-                colorIndex++;
+                Pixels[colorIndex++] = 0xff; // Alpha
             }
 
-            Bitmap.Lock();
-
-            Marshal.Copy(Pixels, 0, Bitmap.BackBuffer, Pixels.Length);
-            Bitmap.AddDirtyRect(new Int32Rect(0, 0, Width, Height));
-
-            Bitmap.Unlock();
+            UpdateBitmap();
         }
 
         #endregion

@@ -30,6 +30,8 @@
 //
 
 using Microsoft.Kinect;
+using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Media.Imaging;
 
 namespace LightBuzz.Vitruvius
@@ -43,17 +45,17 @@ namespace LightBuzz.Vitruvius
         /// <summary>
         /// Returns the RGB pixel values.
         /// </summary>
-        public byte[] Pixels { get; protected set; }
+        public byte[] Pixels { get; private set; }
 
         /// <summary>
         /// Returns the width of the bitmap.
         /// </summary>
-        public int Width { get; protected set; }
+        public int Width { get; private set; }
 
         /// <summary>
         /// Returns the height of the bitmap.
         /// </summary>
-        public int Height { get; protected set; }
+        public int Height { get; private set; }
 
         /// <summary>
         /// Returns the actual bitmap.
@@ -66,6 +68,34 @@ namespace LightBuzz.Vitruvius
         /// <param name="frame">The specified Kinect frame.</param>
         public virtual void Update(T frame)
         {
+
+        }
+
+        /// <summary>
+        /// Instance the internal bitmap that will contains a copy of a Kinect frame.
+        /// It must be called once and only once.
+        /// </summary>
+        /// <param name="frameDescription">contains the frame's dimensions</param>
+        protected void InitializeBitmap(FrameDescription frameDescription)
+        {
+            Width = frameDescription.Width;
+            Height = frameDescription.Height;
+            Pixels = new byte[Width * Height * Constants.BYTES_PER_PIXEL];
+            Bitmap = new WriteableBitmap(Width, Height, Constants.DPI, Constants.DPI, Constants.FORMAT, null);
+        }
+
+        /// <summary>
+        /// Call this in the end of the Update method to update the bitmap with the results of the current frame.
+        /// This method copies the Pixels' buffer into the Bitmap's buffer.
+        /// </summary>
+        protected void UpdateBitmap()
+        {
+            Bitmap.Lock();
+
+            Marshal.Copy(Pixels, 0, Bitmap.BackBuffer, Pixels.Length);
+            Bitmap.AddDirtyRect(new Int32Rect(0, 0, Width, Height));
+
+            Bitmap.Unlock();
         }
     }
 }

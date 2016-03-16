@@ -32,7 +32,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
-    <PlatformTarget>x64</PlatformTarget>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>bin\Release\LightBuzz.Vitruvius.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
@@ -65,6 +65,8 @@
     <Compile Include="Bitmaps\ColorBitmapGenerator.cs" />
     <Compile Include="Bitmaps\DepthBitmapGenerator.cs" />
     <Compile Include="Bitmaps\GreenScreenBitmapGenerator.cs" />
+    <Compile Include="Bitmaps\GreenScreenBitmapGeneratorHD.cs" />
+    <Compile Include="Bitmaps\GreenScreenBitmapGeneratorLD.cs" />
     <Compile Include="Bitmaps\InfraredBitmapGenerator.cs" />
     <Compile Include="Controls\KinectAngle.xaml.cs">
       <DependentUpon>KinectAngle.xaml</DependentUpon>

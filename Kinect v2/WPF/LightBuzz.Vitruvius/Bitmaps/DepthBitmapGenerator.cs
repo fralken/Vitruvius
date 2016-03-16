@@ -45,16 +45,6 @@ namespace LightBuzz.Vitruvius
         #region Properties
 
         /// <summary>
-        /// Returns the RGB pixel values with the players highlighted.
-        /// </summary>
-        public byte[] HighlightedPixels { get; protected set; }
-
-        /// <summary>
-        /// Returns the actual bitmap with the players highlighted.
-        /// </summary>
-        public WriteableBitmap HighlightedBitmap { get; protected set; }
-
-        /// <summary>
         /// Returns the current depth values.
         /// </summary>
         public ushort[] DepthData { get; protected set; }
@@ -74,49 +64,7 @@ namespace LightBuzz.Vitruvius
         /// <param name="frame">The specified Kinect depth frame.</param>
         public override void Update(DepthFrame frame)
         {
-            ushort minDepth = frame.DepthMinReliableDistance;
-            ushort maxDepth = frame.DepthMaxReliableDistance;
-
-            if (Bitmap == null)
-            {
-                Width = frame.FrameDescription.Width;
-                Height = frame.FrameDescription.Height;
-                DepthData = new ushort[Width * Height];
-                Pixels = new byte[Width * Height * Constants.BYTES_PER_PIXEL];
-                Bitmap = new WriteableBitmap(Width, Height, Constants.DPI, Constants.DPI, Constants.FORMAT, null);
-            }
-
-            frame.CopyFrameDataToArray(DepthData);
-
-            // Convert the depth to RGB.
-            int colorIndex = 0;
-
-            for (int depthIndex = 0; depthIndex < DepthData.Length; ++depthIndex)
-            {
-                // Get the depth for this pixel
-                ushort depth = DepthData[depthIndex];
-
-                // To convert to a byte, we're discarding the most-significant
-                // rather than least-significant bits.
-                // We're preserving detail, although the intensity will "wrap."
-                // Values outside the reliable depth range are mapped to 0 (black).
-                byte intensity = (byte)(depth >= minDepth && depth <= maxDepth ? depth : 0);
-
-                Pixels[colorIndex++] = intensity; // Blue
-                Pixels[colorIndex++] = intensity; // Green
-                Pixels[colorIndex++] = intensity; // Red
-
-                // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                // If we were outputting BGRA, we would write alpha here.
-                ++colorIndex;
-            }
-
-            Bitmap.Lock();
-
-            Marshal.Copy(Pixels, 0, Bitmap.BackBuffer, Pixels.Length);
-            Bitmap.AddDirtyRect(new Int32Rect(0, 0, Width, Height));
-
-            Bitmap.Unlock();
+            UpdateData(frame, null);
         }
 
         /// <summary>
@@ -126,57 +74,70 @@ namespace LightBuzz.Vitruvius
         /// <param name="bodyIndexFrame">The specified Kinect body index frame.</param>
         public void Update(DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame)
         {
+            UpdateData(depthFrame, bodyIndexFrame);
+        }
+
+        private void UpdateData(DepthFrame depthFrame, BodyIndexFrame bodyIndexFrame)
+        {
             ushort minDepth = depthFrame.DepthMinReliableDistance;
             ushort maxDepth = depthFrame.DepthMaxReliableDistance;
 
-            if (BodyData == null)
+            if (DepthData == null)
             {
-                Width = depthFrame.FrameDescription.Width;
-                Height = depthFrame.FrameDescription.Height;
+                if (Bitmap == null)
+                {
+                    InitializeBitmap(depthFrame.FrameDescription);
+                }
                 DepthData = new ushort[Width * Height];
-                BodyData = new byte[Width * Height];
-                HighlightedPixels = new byte[Width * Height * Constants.BYTES_PER_PIXEL];
-                HighlightedBitmap = new WriteableBitmap(Width, Height, Constants.DPI, Constants.DPI, Constants.FORMAT, null);
             }
 
             depthFrame.CopyFrameDataToArray(DepthData);
-            bodyIndexFrame.CopyFrameDataToArray(BodyData);
+            if (bodyIndexFrame != null)
+            {
+                if (BodyData == null)
+                {
+                    BodyData = new byte[Width * Height];
+                }
+                bodyIndexFrame.CopyFrameDataToArray(BodyData);
+            }
 
-            // Convert the depth to RGB
-            for (int depthIndex = 0, colorPixelIndex = 0; depthIndex < DepthData.Length && colorPixelIndex < HighlightedPixels.Length; depthIndex++, colorPixelIndex += 4)
+            // Convert the depth to RGB.
+            int colorIndex = 0;
+
+            for (int depthIndex = 0; depthIndex < DepthData.Length; ++depthIndex)
             {
                 // Get the depth for this pixel
                 ushort depth = DepthData[depthIndex];
-                byte player = BodyData[depthIndex];
 
-                // To convert to a byte, we're discarding the most-significant
-                // rather than least-significant bits.
-                // We're preserving detail, although the intensity will "wrap."
-                // Values outside the reliable depth range are mapped to 0 (black).
-                byte intensity = (byte)(depth >= minDepth && depth <= maxDepth ? depth : 0);
+                // To convert to a byte, we clamp the value between minDepth and maxDepth,
+                // then we subtract minDepth so that the range is between 0 and (maxDepth - minDepth),
+                // then we scale to fit in one byte, then we reverse the value so that higher values
+                // correspond to smaller distances
+                ushort clamped = (ushort)(depth < minDepth ? minDepth : (depth > maxDepth ? maxDepth : depth));
+                byte intensity = (byte)((float)(clamped - minDepth) / (float)(maxDepth - minDepth) * 255);
+                intensity = (byte)(255 - intensity);
 
-                if (player != 0xff)
+                byte intensityB = intensity, intensityG = intensity, intensityR = intensity;
+
+                if (bodyIndexFrame != null)
                 {
-                    // Color player gold.
-                    HighlightedPixels[colorPixelIndex + 0] = Colors.Gold.B; // B
-                    HighlightedPixels[colorPixelIndex + 1] = Colors.Gold.G; // G
-                    HighlightedPixels[colorPixelIndex + 2] = Colors.Gold.R; // R
+                    byte player = BodyData[depthIndex];
+                    if (player != 0xff)
+                    {
+                        player++;
+                        if ((player & 1) == 0) intensityB = 0;
+                        if ((player & 2) == 0) intensityG = 0;
+                        if ((player & 4) == 0) intensityR = 0;
+                    }
                 }
-                else
-                {
-                    // Color the rest of the image in grayscale.
-                    HighlightedPixels[colorPixelIndex + 0] = intensity; // B
-                    HighlightedPixels[colorPixelIndex + 1] = intensity; // G
-                    HighlightedPixels[colorPixelIndex + 2] = intensity; // R
-                }
+
+                Pixels[colorIndex++] = intensityB; // Blue
+                Pixels[colorIndex++] = intensityG; // Green
+                Pixels[colorIndex++] = intensityR; // Red
+                Pixels[colorIndex++] = 0xff; // Alpha
             }
 
-            HighlightedBitmap.Lock();
-
-            Marshal.Copy(HighlightedPixels, 0, HighlightedBitmap.BackBuffer, HighlightedPixels.Length);
-            HighlightedBitmap.AddDirtyRect(new Int32Rect(0, 0, Width, Height));
-
-            HighlightedBitmap.Unlock();
+            UpdateBitmap();
         }
 
         #endregion

@@ -17,7 +17,7 @@ namespace LightBuzz.Vitruvius
         /// <summary>
         /// Default format.
         /// </summary>
-        public static readonly PixelFormat FORMAT = PixelFormats.Bgr32;
+        public static readonly PixelFormat FORMAT = PixelFormats.Bgra32;
 
         /// <summary>
         /// Bytes per pixel.
