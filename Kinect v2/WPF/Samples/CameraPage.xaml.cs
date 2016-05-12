@@ -38,7 +38,7 @@ namespace Samples
             {
                 _sensor.Open();
 
-                _reader = _sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.Infrared | FrameSourceTypes.Body);
+                _reader = _sensor.OpenMultiSourceFrameReader(FrameSourceTypes.Color | FrameSourceTypes.Depth | FrameSourceTypes.Infrared | FrameSourceTypes.Body | FrameSourceTypes.BodyIndex);
                 _reader.MultiSourceFrameArrived += Reader_MultiSourceFrameArrived;
 
                 _playersController = new PlayersController();
@@ -116,13 +116,21 @@ namespace Samples
             }
 
             // Depth
-            using (var frame = reference.DepthFrameReference.AcquireFrame())
+            using (var depthFrame = reference.DepthFrameReference.AcquireFrame())
+            using (var bodyIndexFrame = reference.BodyIndexFrameReference.AcquireFrame())
             {
-                if (frame != null)
+                if (depthFrame != null)
                 {
                     if (viewer.Visualization == Visualization.Depth)
                     {
-                        viewer.Image = frame.ToBitmap();
+                        if (bodyIndexFrame != null)
+                        {
+                            viewer.Image = depthFrame.ToBitmap(bodyIndexFrame);
+                        }
+                        else
+                        {
+                            viewer.Image = depthFrame.ToBitmap();
+                        }
                     }
                 }
             }
